@@ -12,22 +12,51 @@ Users want a simple, self-hosted web application to search for a stock ticker an
 
 ## 2. High-Level Architecture
 
-```
-┌────────────────────────────────────────────────────────┐
-│                   Host Machine                         │
-│                                                        │
-│  ┌──────────────────────┐   ┌───────────────────────┐  │
-│  │  FRONTEND CONTAINER  │   │  BACKEND CONTAINER    │  │
-│  │                      │   │                       │  │
-│  │  React App (static)  │   │  FastAPI (Python)     │  │
-│  │  served by Nginx     │   │  ├─ Auth endpoints    │  │
-│  │  :3001 ────────────────────▶ :8001               │  │
-│  │  Nginx reverse-proxy │   │  ├─ Stock endpoints   │  │
-│  │  /api/* → backend    │   │  └─ CSV user store    │  │
-│  └──────────────────────┘   └───────────────────────┘  │
-│                                                        │
-│  docker-compose.yml orchestrates both containers       │
-└────────────────────────────────────────────────────────┘
+```mermaid
+%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
+
+flowchart LR
+    subgraph HOST["🖥️ Host Machine — docker-compose.yml"]
+        direction LR
+
+        subgraph FE["FRONTEND CONTAINER  :3001 → :80"]
+            direction TB
+            FE_REACT["React App\n(static build)"]
+            FE_NGINX["Nginx\nServes SPA &\nreverse-proxies /api/*"]
+        end
+
+        subgraph BE["BACKEND CONTAINER  :8001 → :8000"]
+            direction TB
+            BE_API["FastAPI\n(Uvicorn)"]
+            BE_AUTH["Auth Endpoints\n/api/auth/*"]
+            BE_STOCK["Stock Endpoints\n/api/stock/*"]
+            BE_CSV[("CSV User Store\nusers.csv")]
+        end
+    end
+
+    BROWSER(("🌐 Browser"))
+    YAHOO["Yahoo Finance\nAPI"]
+
+    BROWSER -- "HTTP :3001" --> FE_NGINX
+    FE_NGINX -- "static files" --> FE_REACT
+    FE_NGINX -- "/api/* proxy" --> BE_API
+    BE_API --> BE_AUTH
+    BE_API --> BE_STOCK
+    BE_AUTH --> BE_CSV
+    BE_STOCK -- "yfinance" --> YAHOO
+
+    %% Blue gradient styles
+    style HOST fill:#0a1628,stroke:#1e3a5f,stroke-width:2px,color:#e6edf3
+    style FE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style BE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style BROWSER fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style YAHOO fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style FE_REACT fill:#153d66,stroke:#2980b9,stroke-width:1px,color:#e6edf3
+    style FE_NGINX fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style BE_API fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style BE_AUTH fill:#1f6fa5,stroke:#5dade2,stroke-width:1px,color:#e6edf3
+    style BE_STOCK fill:#2580c3,stroke:#7ec8e3,stroke-width:1px,color:#e6edf3
+    style BE_CSV fill:#2e86c1,stroke:#85c1e9,stroke-width:1px,color:#ffffff
 ```
 
 | Layer     | Container | Tech Stack | Exposed Port |

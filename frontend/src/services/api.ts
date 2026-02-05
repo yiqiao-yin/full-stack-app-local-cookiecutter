@@ -36,6 +36,10 @@ export async function login(username: string, password: string) {
   })
 }
 
-export async function fetchStock(ticker: string, period = '6mo', interval = '1d') {
+export async function fetchStock(ticker: string, period = '1y', interval = '1d') {
   return request(`/stock/${ticker}?period=${period}&interval=${interval}`)
+}
+
+export async function fetchStockInfo(ticker: string) {
+  return request(`/stock/${ticker}/info`)
 }

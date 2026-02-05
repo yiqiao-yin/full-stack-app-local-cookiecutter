@@ -2,21 +2,15 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import CandlestickChart from '../components/CandlestickChart'
-import { fetchStock } from '../services/api'
-
-interface StockData {
-  Date: string
-  Open: number
-  High: number
-  Low: number
-  Close: number
-  Volume: number
-}
+import StockInfoPanel from '../components/StockInfoPanel'
+import AnalystWidget from '../components/AnalystWidget'
+import { fetchStock, fetchStockInfo } from '../services/api'
 
 export default function Dashboard() {
   const navigate = useNavigate()
   const [ticker, setTicker] = useState('')
-  const [data, setData] = useState<StockData[]>([])
+  const [data, setData] = useState<any[]>([])
+  const [info, setInfo] = useState<any>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchedTicker, setSearchedTicker] = useState('')
@@ -34,11 +28,17 @@ export default function Dashboard() {
     setLoading(true)
     setError('')
     setData([])
+    setInfo(null)
 
     try {
-      const result = await fetchStock(ticker.trim().toUpperCase())
-      setData(result)
-      setSearchedTicker(ticker.trim().toUpperCase())
+      const upperTicker = ticker.trim().toUpperCase()
+      const [ohlcv, stockInfo] = await Promise.all([
+        fetchStock(upperTicker),
+        fetchStockInfo(upperTicker).catch(() => null),
+      ])
+      setData(ohlcv)
+      setInfo(stockInfo)
+      setSearchedTicker(upperTicker)
     } catch (err: any) {
       setError(err.message || 'Failed to fetch stock data')
     } finally {
@@ -68,7 +68,21 @@ export default function Dashboard() {
         </form>
         {error && <p className="error">{error}</p>}
         {data.length > 0 && (
-          <CandlestickChart data={data} ticker={searchedTicker} />
+          <>
+            <div className="stock-layout">
+              <div className="stock-chart-col">
+                <CandlestickChart data={data} ticker={searchedTicker} />
+              </div>
+              {info && (
+                <div className="stock-info-col">
+                  <StockInfoPanel info={info} />
+                </div>
+              )}
+            </div>
+            {info?.analyst && (
+              <AnalystWidget analyst={info.analyst} />
+            )}
+          </>
         )}
       </main>
     </div>
