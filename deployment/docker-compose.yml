@@ -1,0 +1,18 @@
+version: "3.9"
+
+services:
+  backend:
+    build: ../backend
+    container_name: stock-backend
+    ports:
+      - "8001:8000"
+    volumes:
+      - ../backend/data:/app/data
+
+  frontend:
+    build: ../frontend
+    container_name: stock-frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - backend
