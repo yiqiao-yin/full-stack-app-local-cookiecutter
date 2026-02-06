@@ -533,6 +533,203 @@ body {
   margin-top: 0.5rem;
 }
 
+/* ── Ratio Insights (AI Analysis) ── */
+.ratio-insights {
+  /* Container for AI-generated insights */
+}
+
+/* Overall Gauge — CSS semicircle */
+.overall-gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0.5rem 0;
+}
+
+.gauge-semicircle {
+  position: relative;
+  width: 120px;
+  height: 60px;
+  overflow: hidden;
+}
+
+.gauge-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120px;
+  height: 60px;
+  overflow: hidden;
+  background: #21262d;
+  border-radius: 60px 60px 0 0;
+}
+
+.gauge-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  clip: rect(60px, 120px, 120px, 0);
+  transform-origin: center center;
+  transition: transform 0.6s ease;
+}
+
+.gauge-center {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  background: #161b22;
+  width: 80px;
+  height: 40px;
+  border-radius: 40px 40px 0 0;
+  justify-content: center;
+  padding-top: 14px;
+}
+
+.gauge-score {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #e6edf3;
+}
+
+.gauge-max {
+  font-size: 0.6rem;
+  color: #8b949e;
+}
+
+.gauge-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
+}
+
+.overall-summary {
+  font-size: 0.75rem;
+  color: #8b949e;
+  text-align: center;
+  line-height: 1.4;
+  margin-top: 0.5rem;
+}
+
+/* Metric Rows */
+.metric-row {
+  display: grid;
+  grid-template-columns: 90px 50px 1fr 64px;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.3rem 0;
+  font-size: 0.75rem;
+  position: relative;
+}
+
+.metric-row:hover .metric-tooltip {
+  opacity: 1;
+  visibility: visible;
+}
+
+.metric-name {
+  color: #8b949e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-raw-value {
+  text-align: right;
+  font-weight: 500;
+  color: #e6edf3;
+}
+
+/* Mini horizontal gauge bar */
+.mini-gauge-track {
+  height: 6px;
+  background: #21262d;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.mini-gauge-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* Color-coded rating badge */
+.rating-badge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  border: 1.5px solid;
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+/* Tooltip on hover */
+.metric-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.7rem;
+  color: #e6edf3;
+  white-space: normal;
+  width: 240px;
+  z-index: 10;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Insights loading spinner */
+.insights-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  font-size: 0.75rem;
+  color: #8b949e;
+}
+
+.insights-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #30363d;
+  border-top-color: #58a6ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Powered by label */
+.powered-by {
+  text-align: center;
+  font-size: 0.65rem;
+  color: #484f58;
+  margin-top: 0.5rem;
+  letter-spacing: 0.03em;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .landing-hero h1 {
@@ -574,6 +771,43 @@ body {
   .target-details {
     flex-wrap: wrap;
     gap: 0.25rem;
+  }
+
+  .gauge-semicircle {
+    width: 100px;
+    height: 50px;
+  }
+
+  .gauge-mask {
+    width: 100px;
+    height: 50px;
+    border-radius: 50px 50px 0 0;
+  }
+
+  .gauge-fill {
+    width: 100px;
+    height: 100px;
+    clip: rect(50px, 100px, 100px, 0);
+  }
+
+  .gauge-center {
+    width: 64px;
+    height: 32px;
+    border-radius: 32px 32px 0 0;
+    padding-top: 10px;
+  }
+
+  .gauge-score {
+    font-size: 1rem;
+  }
+
+  .metric-row {
+    grid-template-columns: 80px 44px 1fr 56px;
+    font-size: 0.7rem;
+  }
+
+  .metric-tooltip {
+    width: 200px;
   }
 }
 

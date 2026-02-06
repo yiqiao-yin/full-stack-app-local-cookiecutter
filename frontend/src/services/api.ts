@@ -43,3 +43,7 @@ export async function fetchStock(ticker: string, period = '1y', interval = '1d')
 export async function fetchStockInfo(ticker: string) {
   return request(`/stock/${ticker}/info`)
 }
+
+export async function fetchStockInsights(ticker: string) {
+  return request(`/stock/${ticker}/insights`)
+}

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from app.auth_utils import get_current_user
 from app.stock_utils import fetch_ohlcv, fetch_ticker_info
+from app.claude_insights import get_insights
 
 router = APIRouter()
 
@@ -32,3 +33,21 @@ def get_stock_info(
             status_code=404, detail=f"No info found for ticker '{ticker}'"
         )
     return info
+
+
+@router.get("/{ticker}/insights")
+def get_stock_insights(
+    ticker: str,
+    _user: str = Depends(get_current_user),
+):
+    info = fetch_ticker_info(ticker)
+    if not info:
+        raise HTTPException(
+            status_code=404, detail=f"No info found for ticker '{ticker}'"
+        )
+    insights = get_insights(info, ticker)
+    if not insights:
+        raise HTTPException(
+            status_code=503, detail="AI insights unavailable"
+        )
+    return insights

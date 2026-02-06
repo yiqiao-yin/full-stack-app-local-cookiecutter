@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import RatioInsights from './RatioInsights'
 
 interface StockInfo {
   profile: {
@@ -47,6 +48,8 @@ interface StockInfo {
 
 interface StockInfoPanelProps {
   info: StockInfo
+  insights?: any
+  insightsLoading?: boolean
 }
 
 function fmt(val: number | null, suffix = ''): string {
@@ -67,7 +70,7 @@ function fmtLarge(val: number | null): string {
   return `$${val.toLocaleString()}`
 }
 
-export default function StockInfoPanel({ info }: StockInfoPanelProps) {
+export default function StockInfoPanel({ info, insights, insightsLoading }: StockInfoPanelProps) {
   const [aboutOpen, setAboutOpen] = useState(false)
   const { profile, price, ratios, financials, dividends } = info
 
@@ -127,35 +130,50 @@ export default function StockInfoPanel({ info }: StockInfoPanelProps) {
         </div>
       </div>
 
-      {/* Key Ratios */}
-      <div className="info-section">
-        <div className="info-section-title">Key Ratios</div>
-        <div className="info-grid">
-          <div className="info-label">P/E (TTM)</div><div className="info-value">{fmt(ratios.trailingPE)}</div>
-          <div className="info-label">P/E (Fwd)</div><div className="info-value">{fmt(ratios.forwardPE)}</div>
-          <div className="info-label">PEG</div><div className="info-value">{fmt(ratios.trailingPegRatio)}</div>
-          <div className="info-label">EPS (TTM)</div><div className="info-value">{fmt(ratios.trailingEps)}</div>
-          <div className="info-label">EPS (Fwd)</div><div className="info-value">{fmt(ratios.forwardEps)}</div>
-          <div className="info-label">P/B</div><div className="info-value">{fmt(ratios.priceToBook)}</div>
-          <div className="info-label">D/E</div><div className="info-value">{fmt(ratios.debtToEquity)}</div>
-          <div className="info-label">Beta</div><div className="info-value">{fmt(ratios.beta)}</div>
-        </div>
-      </div>
+      {/* Key Ratios & Financials — replaced by AI insights when available */}
+      {insights ? (
+        <RatioInsights insights={insights} ratios={ratios} financials={financials} />
+      ) : (
+        <>
+          {/* Key Ratios */}
+          <div className="info-section">
+            <div className="info-section-title">Key Ratios</div>
+            <div className="info-grid">
+              <div className="info-label">P/E (TTM)</div><div className="info-value">{fmt(ratios.trailingPE)}</div>
+              <div className="info-label">P/E (Fwd)</div><div className="info-value">{fmt(ratios.forwardPE)}</div>
+              <div className="info-label">PEG</div><div className="info-value">{fmt(ratios.trailingPegRatio)}</div>
+              <div className="info-label">EPS (TTM)</div><div className="info-value">{fmt(ratios.trailingEps)}</div>
+              <div className="info-label">EPS (Fwd)</div><div className="info-value">{fmt(ratios.forwardEps)}</div>
+              <div className="info-label">P/B</div><div className="info-value">{fmt(ratios.priceToBook)}</div>
+              <div className="info-label">D/E</div><div className="info-value">{fmt(ratios.debtToEquity)}</div>
+              <div className="info-label">Beta</div><div className="info-value">{fmt(ratios.beta)}</div>
+            </div>
+          </div>
 
-      {/* Financials */}
-      <div className="info-section">
-        <div className="info-section-title">Financials</div>
-        <div className="info-grid">
-          <div className="info-label">Market Cap</div><div className="info-value">{fmtLarge(financials.marketCap)}</div>
-          <div className="info-label">Revenue</div><div className="info-value">{fmtLarge(financials.totalRevenue)}</div>
-          <div className="info-label">Rev Growth</div><div className="info-value">{fmtPct(financials.revenueGrowth)}</div>
-          <div className="info-label">Profit Margin</div><div className="info-value">{fmtPct(financials.profitMargins)}</div>
-          <div className="info-label">Op Margin</div><div className="info-value">{fmtPct(financials.operatingMargins)}</div>
-          <div className="info-label">Gross Margin</div><div className="info-value">{fmtPct(financials.grossMargins)}</div>
-          <div className="info-label">ROE</div><div className="info-value">{fmtPct(financials.returnOnEquity)}</div>
-          <div className="info-label">ROA</div><div className="info-value">{fmtPct(financials.returnOnAssets)}</div>
-        </div>
-      </div>
+          {/* Financials */}
+          <div className="info-section">
+            <div className="info-section-title">Financials</div>
+            <div className="info-grid">
+              <div className="info-label">Market Cap</div><div className="info-value">{fmtLarge(financials.marketCap)}</div>
+              <div className="info-label">Revenue</div><div className="info-value">{fmtLarge(financials.totalRevenue)}</div>
+              <div className="info-label">Rev Growth</div><div className="info-value">{fmtPct(financials.revenueGrowth)}</div>
+              <div className="info-label">Profit Margin</div><div className="info-value">{fmtPct(financials.profitMargins)}</div>
+              <div className="info-label">Op Margin</div><div className="info-value">{fmtPct(financials.operatingMargins)}</div>
+              <div className="info-label">Gross Margin</div><div className="info-value">{fmtPct(financials.grossMargins)}</div>
+              <div className="info-label">ROE</div><div className="info-value">{fmtPct(financials.returnOnEquity)}</div>
+              <div className="info-label">ROA</div><div className="info-value">{fmtPct(financials.returnOnAssets)}</div>
+            </div>
+          </div>
+
+          {/* Insights loading spinner */}
+          {insightsLoading && (
+            <div className="insights-loading">
+              <div className="insights-loading-spinner" />
+              <span>Analyzing ratios with AI...</span>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Dividends */}
       {dividends.dividendRate && (

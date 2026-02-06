@@ -4,7 +4,7 @@ import Navbar from '../components/Navbar'
 import CandlestickChart from '../components/CandlestickChart'
 import StockInfoPanel from '../components/StockInfoPanel'
 import AnalystWidget from '../components/AnalystWidget'
-import { fetchStock, fetchStockInfo } from '../services/api'
+import { fetchStock, fetchStockInfo, fetchStockInsights } from '../services/api'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -14,6 +14,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchedTicker, setSearchedTicker] = useState('')
+  const [insights, setInsights] = useState<any>(null)
+  const [insightsLoading, setInsightsLoading] = useState(false)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) {
@@ -29,6 +31,8 @@ export default function Dashboard() {
     setError('')
     setData([])
     setInfo(null)
+    setInsights(null)
+    setInsightsLoading(false)
 
     try {
       const upperTicker = ticker.trim().toUpperCase()
@@ -39,6 +43,17 @@ export default function Dashboard() {
       setData(ohlcv)
       setInfo(stockInfo)
       setSearchedTicker(upperTicker)
+
+      // Fetch AI insights asynchronously (non-blocking)
+      setInsightsLoading(true)
+      fetchStockInsights(upperTicker)
+        .then((data) => {
+          setInsights(data)
+          setInsightsLoading(false)
+        })
+        .catch(() => {
+          setInsightsLoading(false)
+        })
     } catch (err: any) {
       setError(err.message || 'Failed to fetch stock data')
     } finally {
@@ -75,7 +90,7 @@ export default function Dashboard() {
               </div>
               {info && (
                 <div className="stock-info-col">
-                  <StockInfoPanel info={info} />
+                  <StockInfoPanel info={info} insights={insights} insightsLoading={insightsLoading} />
                 </div>
               )}
             </div>
