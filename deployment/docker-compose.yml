@@ -10,6 +10,13 @@ services:
     volumes:
       - ../backend/data:/app/data
 
+  copilot:
+    build: ../copilot
+    container_name: stock-copilot
+    ports:
+      - "4001:4001"
+    env_file: ../.env
+
   frontend:
     build: ../frontend
     container_name: stock-frontend
@@ -17,3 +24,4 @@ services:
       - "3001:80"
     depends_on:
       - backend
+      - copilot

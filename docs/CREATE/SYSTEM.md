@@ -21,8 +21,8 @@ flowchart LR
 
         subgraph FE["FRONTEND CONTAINER  :3001 → :80"]
             direction TB
-            FE_REACT["React App\n(static build)"]
-            FE_NGINX["Nginx\nServes SPA &\nreverse-proxies /api/*"]
+            FE_REACT["React App\n(static build)\n+ CopilotKit UI\n+ Driver.js"]
+            FE_NGINX["Nginx\nServes SPA &\nreverse-proxies\n/api/* & /copilot/*"]
         end
 
         subgraph BE["BACKEND CONTAINER  :8001 → :8000"]
@@ -32,42 +32,126 @@ flowchart LR
             BE_STOCK["Stock Endpoints\n/api/stock/*"]
             BE_CSV[("CSV User Store\nusers.csv")]
         end
+
+        subgraph CP["COPILOT CONTAINER  :4001 → :4001"]
+            direction TB
+            CP_RUNTIME["CopilotKit\nRuntime\n(Node.js / Express)"]
+            CP_AGENT["LangGraph Agent\n(action handlers)"]
+        end
     end
 
     BROWSER(("🌐 Browser"))
     YAHOO["Yahoo Finance\nAPI"]
+    LLM["LLM Provider\n(Claude / OpenAI)"]
 
     BROWSER -- "HTTP :3001" --> FE_NGINX
     FE_NGINX -- "static files" --> FE_REACT
     FE_NGINX -- "/api/* proxy" --> BE_API
+    FE_NGINX -- "/copilot/* proxy" --> CP_RUNTIME
     BE_API --> BE_AUTH
     BE_API --> BE_STOCK
     BE_AUTH --> BE_CSV
     BE_STOCK -- "yfinance" --> YAHOO
+    CP_RUNTIME --> CP_AGENT
+    CP_AGENT -- "LLM calls" --> LLM
+    FE_REACT -. "CopilotKit\nreadable state &\nactions" .-> CP_RUNTIME
 
     %% Blue gradient styles
     style HOST fill:#0a1628,stroke:#1e3a5f,stroke-width:2px,color:#e6edf3
     style FE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
     style BE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style CP fill:#1a0f44,stroke:#5a1e9f,stroke-width:2px,color:#e6edf3
     style BROWSER fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
     style YAHOO fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style LLM fill:#4a1a7a,stroke:#8a2ebf,stroke-width:2px,color:#ffffff
     style FE_REACT fill:#153d66,stroke:#2980b9,stroke-width:1px,color:#e6edf3
     style FE_NGINX fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
     style BE_API fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
     style BE_AUTH fill:#1f6fa5,stroke:#5dade2,stroke-width:1px,color:#e6edf3
     style BE_STOCK fill:#2580c3,stroke:#7ec8e3,stroke-width:1px,color:#e6edf3
     style BE_CSV fill:#2e86c1,stroke:#85c1e9,stroke-width:1px,color:#ffffff
+    style CP_RUNTIME fill:#2d1566,stroke:#7b4fbf,stroke-width:1px,color:#e6edf3
+    style CP_AGENT fill:#3a1e80,stroke:#9b6ed6,stroke-width:1px,color:#e6edf3
 ```
 
 | Layer     | Container | Tech Stack | Exposed Port |
 |-----------|-----------|------------|--------------|
-| Frontend  | `frontend` | React 18 + TypeScript + Vite, served by Nginx | `3001` (host) → `80` (container) |
+| Frontend  | `frontend` | React 18 + TypeScript + Vite + **CopilotKit React SDK** + **Driver.js**, served by Nginx | `3001` (host) → `80` (container) |
 | Backend   | `backend`  | Python 3.11+, FastAPI, Uvicorn | `8001` (host) → `8000` (container) |
+| Copilot   | `copilot`  | Node.js + **CopilotKit Runtime** + LangGraph agent | `4001` (host) → `4001` (container) |
 
-Nginx inside the frontend container does two jobs:
+Nginx inside the frontend container does three jobs:
 
 1. Serves the built React static files.
 2. Reverse-proxies any `/api/*` request to the backend container on port `8000` (container-internal), so the browser never talks directly to the backend.
+3. Reverse-proxies any `/copilot/*` request to the copilot container on port `4001`, so the CopilotKit React SDK communicates with its runtime through the same origin.
+
+### 2.1 Copilot Container — CopilotKit Runtime
+
+The **copilot** container runs the [CopilotKit](https://docs.copilotkit.ai/) self-hosted runtime. It is a lightweight Node.js / Express server that:
+
+- Receives chat messages from the CopilotKit React `<CopilotSidebar>` component in the frontend.
+- Forwards them to an LLM provider (Claude or OpenAI) along with the current **frontend readable state** (ticker, chart data, current page) that CopilotKit automatically injects into the prompt context.
+- Executes **frontend actions** defined in React via `useCopilotAction()` — these are the hooks that let the LLM control the UI.
+
+### 2.2 CopilotKit ↔ Frontend Integration (Actions & Readable State)
+
+The React app exposes two things to the copilot:
+
+**Readable state** (via `useCopilotReadable`):
+- Current ticker symbol
+- Current chart data / dashboard state
+- Current page (landing vs dashboard)
+
+**Actions** (via `useCopilotAction`):
+
+| Action Name | Parameters | What It Does |
+|-------------|-----------|--------------|
+| `searchTicker` | `ticker: string` | Programmatically types the ticker into the search box and triggers the search — the core copilot use case. |
+
+### 2.3 Driver.js Visual Automation Overlay
+
+When the copilot executes the `searchTicker` action, it does **not** silently update state. Instead, it runs a **Driver.js guided sequence** so the user can visually follow what the copilot is doing:
+
+**Step 1 — Highlight the search input & simulate typing:**
+1. Driver.js activates a spotlight overlay on the `.search-form input` element with a pulsing blue halo (CSS `box-shadow` with gradient animation).
+2. The ticker string (e.g. `"AAPL"`) is typed **letter-by-letter** into the input field with a ~120ms delay per character, simulating a real user typing.
+3. A popover tooltip says *"Copilot is entering ticker: AAPL"*.
+
+**Step 2 — Highlight the Search button & trigger submit:**
+1. Driver.js moves the spotlight to the `.search-form button` element with the same pulsing blue halo.
+2. A popover tooltip says *"Copilot is searching..."*.
+3. After a brief pause (~400ms), the form submit is triggered programmatically (equivalent to pressing Enter / clicking Search).
+4. The Driver.js overlay dismisses once data begins loading.
+
+**Visual style for the blue halo:**
+```css
+@keyframes copilot-halo {
+  0%, 100% { box-shadow: 0 0 8px 2px rgba(88, 166, 255, 0.4); }
+  50%      { box-shadow: 0 0 20px 6px rgba(88, 166, 255, 0.8); }
+}
+.driver-active-element {
+  animation: copilot-halo 1s ease-in-out infinite;
+  border-color: #58a6ff !important;
+}
+```
+
+### 2.4 End-to-End Copilot Flow
+
+```
+User opens copilot sidebar → types "show me AAPL stock analysis"
+  → CopilotKit sends message + readable state to /copilot/* → copilot runtime
+  → LLM decides to call searchTicker(ticker="AAPL")
+  → CopilotKit executes the action in React
+  → Action handler:
+      1. Driver.js highlights search input with blue halo
+      2. Letters "A", "A", "P", "L" typed one-by-one into input (state updates)
+      3. Driver.js moves highlight to Search button with blue halo
+      4. Form submit triggered programmatically
+      5. Driver.js overlay dismissed
+      6. Dashboard loads AAPL chart, info panel, and AI insights
+  → Copilot responds: "Here's the AAPL analysis!"
+```
 
 ---
 
