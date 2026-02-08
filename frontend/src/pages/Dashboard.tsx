@@ -93,13 +93,57 @@ export default function Dashboard() {
   })
 
   useCopilotReadable({
-    description: 'Whether stock data is currently loaded and displayed',
-    value: data.length > 0 ? `Showing ${data.length} data points for ${searchedTicker}` : 'No stock data loaded',
+    description: 'The current page the user is on',
+    value: 'Dashboard',
+  })
+
+  // Expose latest OHLCV price summary (not the full 251-row array)
+  useCopilotReadable({
+    description: 'Latest stock price data point from the OHLCV chart (most recent trading day)',
+    value: data.length > 0
+      ? {
+          dataPoints: data.length,
+          latestDay: data[data.length - 1],
+          earliestDay: data[0],
+        }
+      : 'No stock data loaded',
+  })
+
+  // Expose full company info: profile, price, ratios, financials, dividends, analyst
+  useCopilotReadable({
+    description: 'Company profile including name, sector, industry, website, employees, and business summary',
+    value: info?.profile ?? null,
   })
 
   useCopilotReadable({
-    description: 'The current page the user is on',
-    value: 'Dashboard',
+    description: 'Current stock price data: currentPrice, previousClose, dayHigh, dayLow, 52-week high/low',
+    value: info?.price ?? null,
+  })
+
+  useCopilotReadable({
+    description: 'Valuation ratios: trailingPE, forwardPE, PEG ratio, EPS (trailing/forward), priceToBook, debtToEquity, beta',
+    value: info?.ratios ?? null,
+  })
+
+  useCopilotReadable({
+    description: 'Financial metrics: marketCap, totalRevenue, revenueGrowth, profitMargins, operatingMargins, grossMargins, ROE, ROA',
+    value: info?.financials ?? null,
+  })
+
+  useCopilotReadable({
+    description: 'Dividend information: dividendRate, dividendYield, payoutRatio',
+    value: info?.dividends ?? null,
+  })
+
+  useCopilotReadable({
+    description: 'Analyst consensus: averageRating, price targets (current, low, mean, median, high), and recommendations (strongBuy, buy, hold, sell, strongSell counts)',
+    value: info?.analyst ?? null,
+  })
+
+  // Expose AI financial analysis insights
+  useCopilotReadable({
+    description: 'AI financial analysis: overallScore (1-100), overallLabel, overallSummary, and per-metric scores/labels/explanations for trailingPE, forwardPE, pegRatio, priceToBook, debtToEquity, beta, profitMargins, revenueGrowth, returnOnEquity, returnOnAssets',
+    value: insights ?? (insightsLoading ? 'AI insights are still loading...' : null),
   })
 
   // ── CopilotKit: searchTicker action with Driver.js visual automation ──
