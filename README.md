@@ -55,7 +55,7 @@ full-stack-app-local-cookiecutter/
 ├── .gitignore
 ├── backend/                   # FastAPI backend service
 │   ├── Dockerfile
-│   ├── requirements.txt       # Includes anthropic SDK
+│   ├── requirements.txt       # Includes anthropic SDK + statsmodels
 │   ├── data/                  # CSV user storage (created at runtime)
 │   └── app/
 │       ├── main.py            # FastAPI app entry point
@@ -63,9 +63,10 @@ full-stack-app-local-cookiecutter/
 │       ├── auth_utils.py      # JWT + bcrypt helpers
 │       ├── stock_utils.py     # yfinance wrapper + ticker info + SMA
 │       ├── claude_insights.py # Claude API integration, prompt, cache
+│       ├── forecast_utils.py  # ARIMA time-series forecast via statsmodels
 │       └── routers/
 │           ├── auth.py        # POST /api/auth/register, /api/auth/login
-│           └── stock.py       # GET  /api/stock/{ticker}, {ticker}/info, {ticker}/insights
+│           └── stock.py       # GET  /api/stock/{ticker}, {ticker}/info, {ticker}/insights, {ticker}/forecast
 ├── frontend/                  # React SPA
 │   ├── Dockerfile
 │   ├── nginx.conf             # Nginx config (SPA fallback + API proxy)
@@ -75,20 +76,20 @@ full-stack-app-local-cookiecutter/
 │       ├── App.tsx
 │       ├── pages/
 │       │   ├── LandingPage.tsx    # Dark-themed login/register
-│       │   └── Dashboard.tsx      # Ticker search + chart + info + analyst + insights
+│       │   └── Dashboard.tsx      # Ticker search + chart + info + analyst + insights + forecast
 │       ├── components/
 │       │   ├── AuthForm.tsx
-│       │   ├── CandlestickChart.tsx   # Plotly chart with SMA overlays
+│       │   ├── CandlestickChart.tsx   # Plotly chart with SMA overlays + ARIMA forecast band
 │       │   ├── StockInfoPanel.tsx     # Company info, ratios, financials (+ AI overlay)
 │       │   ├── RatioInsights.tsx      # AI gauges, badges, tooltips for rated metrics
 │       │   ├── AnalystWidget.tsx      # Recommendations + price targets
 │       │   └── Navbar.tsx
 │       ├── services/
-│       │   └── api.ts         # Fetch wrappers for /api/* (includes fetchStockInsights)
+│       │   └── api.ts         # Fetch wrappers for /api/* (includes fetchStockInsights, fetchForecast)
 │       └── styles/
 │           └── global.css     # Dark theme, mobile-adaptive, gauge/badge/tooltip styles
 ├── deployment/
-│   └── docker-compose.yml     # Wires frontend + backend containers, loads .env
+│   └── docker-compose.yml     # Wires frontend + backend + copilot containers, loads .env
 └── docs/
     └── CREATE/
         ├── SYSTEM.md                          # System blueprint and design rationale
