@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.auth_utils import get_current_user
 from app.stock_utils import fetch_ohlcv, fetch_ticker_info
 from app.claude_insights import get_insights
+from app.forecast_utils import fetch_forecast
 
 router = APIRouter()
 
@@ -51,3 +52,18 @@ def get_stock_insights(
             status_code=503, detail="AI insights unavailable"
         )
     return insights
+
+
+@router.get("/{ticker}/forecast")
+def get_stock_forecast(
+    ticker: str,
+    days: int = 7,
+    period: str = "1y",
+    _user: str = Depends(get_current_user),
+):
+    result = fetch_forecast(ticker, period, days)
+    if not result.get("forecast"):
+        raise HTTPException(
+            status_code=404, detail=f"No forecast data for ticker '{ticker}'"
+        )
+    return result

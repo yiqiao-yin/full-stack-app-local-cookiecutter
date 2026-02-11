@@ -30,6 +30,8 @@ flowchart LR
             BE_API["FastAPI\n(Uvicorn)"]
             BE_AUTH["Auth Endpoints\n/api/auth/*"]
             BE_STOCK["Stock Endpoints\n/api/stock/*"]
+            BE_FORECAST["Forecast Endpoint\n/api/stock/{ticker}/forecast"]
+            BE_ARMA["ARIMA/ARMA\nTime-Series Model\n(statsmodels)"]
             BE_CSV[("CSV User Store\nusers.csv")]
         end
 
@@ -50,8 +52,11 @@ flowchart LR
     FE_NGINX -- "/copilot/* proxy" --> CP_RUNTIME
     BE_API --> BE_AUTH
     BE_API --> BE_STOCK
+    BE_API --> BE_FORECAST
+    BE_FORECAST --> BE_ARMA
     BE_AUTH --> BE_CSV
     BE_STOCK -- "yfinance" --> YAHOO
+    BE_FORECAST -- "yfinance\n(close prices)" --> YAHOO
     CP_RUNTIME --> CP_AGENT
     CP_AGENT -- "LLM calls" --> LLM
     FE_REACT -. "CopilotKit\nreadable state &\nactions" .-> CP_RUNTIME
@@ -69,6 +74,8 @@ flowchart LR
     style BE_API fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
     style BE_AUTH fill:#1f6fa5,stroke:#5dade2,stroke-width:1px,color:#e6edf3
     style BE_STOCK fill:#2580c3,stroke:#7ec8e3,stroke-width:1px,color:#e6edf3
+    style BE_FORECAST fill:#1fa575,stroke:#5de2a2,stroke-width:1px,color:#e6edf3
+    style BE_ARMA fill:#1f8a5f,stroke:#4dc98a,stroke-width:1px,color:#e6edf3
     style BE_CSV fill:#2e86c1,stroke:#85c1e9,stroke-width:1px,color:#ffffff
     style CP_RUNTIME fill:#2d1566,stroke:#7b4fbf,stroke-width:1px,color:#e6edf3
     style CP_AGENT fill:#3a1e80,stroke:#9b6ed6,stroke-width:1px,color:#e6edf3
@@ -77,7 +84,7 @@ flowchart LR
 | Layer     | Container | Tech Stack | Exposed Port |
 |-----------|-----------|------------|--------------|
 | Frontend  | `frontend` | React 18 + TypeScript + Vite + **CopilotKit React SDK** + **Driver.js**, served by Nginx | `3001` (host) → `80` (container) |
-| Backend   | `backend`  | Python 3.11+, FastAPI, Uvicorn | `8001` (host) → `8000` (container) |
+| Backend   | `backend`  | Python 3.11+, FastAPI, Uvicorn, **statsmodels** (ARIMA) | `8001` (host) → `8000` (container) |
 | Copilot   | `copilot`  | Node.js + **CopilotKit Runtime** + LangGraph agent | `4001` (host) → `4001` (container) |
 
 Nginx inside the frontend container does three jobs:
@@ -85,6 +92,56 @@ Nginx inside the frontend container does three jobs:
 1. Serves the built React static files.
 2. Reverse-proxies any `/api/*` request to the backend container on port `8000` (container-internal), so the browser never talks directly to the backend.
 3. Reverse-proxies any `/copilot/*` request to the copilot container on port `4001`, so the CopilotKit React SDK communicates with its runtime through the same origin.
+
+### 2.5 Time-Series Forecast (ARIMA)
+
+The backend exposes a new endpoint `GET /api/stock/{ticker}/forecast` that:
+
+1. **Fetches historical closing prices** from Yahoo Finance via `yfinance` (reuses the same library, pulls 1 year of daily close data).
+2. **Fits an ARIMA model** using `statsmodels.tsa.arima.model.ARIMA` on the closing price series.
+3. **Generates an n-day forecast** (default 7 days) with confidence intervals.
+4. **Returns JSON** with forecast dates, predicted prices, and upper/lower confidence bounds.
+
+**Data flow — no redundant API calls:**
+```
+User searches ticker → frontend fetches OHLCV + info (existing flow)
+                     → frontend ALSO fetches /api/stock/{ticker}/forecast
+                     → backend fetches close prices from yfinance, fits ARIMA, returns forecast
+                     → frontend overlays 3 lines (forecast, upper CI, lower CI) on the candlestick chart
+```
+
+**API endpoint:**
+
+| Method | Path | Query Params | Response |
+|--------|------|-------------|----------|
+| `GET` | `/api/stock/{ticker}/forecast` | `days` (default `7`), `period` (default `1y`) | `200` with forecast JSON |
+
+**Response shape:**
+```json
+{
+  "ticker": "AAPL",
+  "model": "ARIMA",
+  "order": [2, 1, 2],
+  "forecast": [
+    {
+      "Date": "2026-02-08",
+      "Price": 234.50,
+      "Upper": 240.12,
+      "Lower": 228.88
+    }
+  ]
+}
+```
+
+**Frontend rendering:**
+
+The forecast is overlaid on the existing candlestick chart as three lines starting from the last historical data point:
+- **Forecast line** (solid, e.g. cyan `#00d4ff`) — the predicted closing price
+- **Upper bound** (dashed, lighter) — upper 95% confidence interval
+- **Lower bound** (dashed, lighter) — lower 95% confidence interval
+- The area between upper and lower bounds is filled with a semi-transparent band
+
+The forecast lines connect seamlessly from the last actual closing price, so the chart shows historical candles transitioning into the predicted range.
 
 ### 2.1 Copilot Container — CopilotKit Runtime
 

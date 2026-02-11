@@ -47,3 +47,7 @@ export async function fetchStockInfo(ticker: string) {
 export async function fetchStockInsights(ticker: string) {
   return request(`/stock/${ticker}/insights`)
 }
+
+export async function fetchForecast(ticker: string, days = 7) {
+  return request(`/stock/${ticker}/forecast?days=${days}`)
+}

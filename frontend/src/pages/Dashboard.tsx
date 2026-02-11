@@ -7,7 +7,7 @@ import Navbar from '../components/Navbar'
 import CandlestickChart from '../components/CandlestickChart'
 import StockInfoPanel from '../components/StockInfoPanel'
 import AnalystWidget from '../components/AnalystWidget'
-import { fetchStock, fetchStockInfo, fetchStockInsights } from '../services/api'
+import { fetchStock, fetchStockInfo, fetchStockInsights, fetchForecast } from '../services/api'
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [searchedTicker, setSearchedTicker] = useState('')
   const [insights, setInsights] = useState<any>(null)
   const [insightsLoading, setInsightsLoading] = useState(false)
+  const [forecast, setForecast] = useState<any>(null)
 
   const driverRef = useRef<ReturnType<typeof driver> | null>(null)
 
@@ -43,6 +44,7 @@ export default function Dashboard() {
     setInfo(null)
     setInsights(null)
     setInsightsLoading(false)
+    setForecast(null)
 
     try {
       const upperTicker = searchTicker.trim().toUpperCase()
@@ -64,6 +66,11 @@ export default function Dashboard() {
         .catch(() => {
           setInsightsLoading(false)
         })
+
+      // Fetch ARIMA forecast asynchronously (non-blocking)
+      fetchForecast(upperTicker)
+        .then((d) => setForecast(d))
+        .catch(() => {})
     } catch (err: any) {
       setError(err.message || 'Failed to fetch stock data')
     } finally {
@@ -144,6 +151,11 @@ export default function Dashboard() {
   useCopilotReadable({
     description: 'AI financial analysis: overallScore (1-100), overallLabel, overallSummary, and per-metric scores/labels/explanations for trailingPE, forwardPE, pegRatio, priceToBook, debtToEquity, beta, profitMargins, revenueGrowth, returnOnEquity, returnOnAssets',
     value: insights ?? (insightsLoading ? 'AI insights are still loading...' : null),
+  })
+
+  useCopilotReadable({
+    description: 'ARIMA 7-day price forecast: model, order, and forecast array with Date, Price, Upper, Lower for each forecasted day',
+    value: forecast ?? null,
   })
 
   // ── CopilotKit: searchTicker action with Driver.js visual automation ──
@@ -242,7 +254,7 @@ export default function Dashboard() {
           <>
             <div className="stock-layout">
               <div className="stock-chart-col">
-                <CandlestickChart data={data} ticker={searchedTicker} />
+                <CandlestickChart data={data} ticker={searchedTicker} forecast={forecast?.forecast} />
               </div>
               {info && (
                 <div className="stock-info-col">
