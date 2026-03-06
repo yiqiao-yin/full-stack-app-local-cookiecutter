@@ -1,38 +1,53 @@
 import os
 from datetime import datetime, timedelta
 
+import requests as http_requests
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import pandas as pd
 
 SECRET_KEY = os.getenv("SECRET_KEY", "local-dev-secret-key-change-in-prod")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
+DYNAMODB_API_URL = os.getenv("DYNAMODB_API_URL", "")
+DYNAMODB_API_KEY = os.getenv("DYNAMODB_API_KEY", "")
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
-USERS_CSV = os.path.join(DATA_DIR, "users.csv")
+
+def _api_headers():
+    return {"x-api-key": DYNAMODB_API_KEY, "Content-Type": "application/json"}
 
 
-def _ensure_csv():
-    os.makedirs(DATA_DIR, exist_ok=True)
-    if not os.path.exists(USERS_CSV):
-        df = pd.DataFrame(columns=["username", "hashed_password", "created_at"])
-        df.to_csv(USERS_CSV, index=False)
+def get_user(username: str) -> dict | None:
+    resp = http_requests.post(
+        f"{DYNAMODB_API_URL}/login",
+        headers=_api_headers(),
+        json={"username": username},
+    )
+    if resp.status_code == 404:
+        return None
+    resp.raise_for_status()
+    return resp.json()
 
 
-def get_users_df() -> pd.DataFrame:
-    _ensure_csv()
-    return pd.read_csv(USERS_CSV)
-
-
-def save_users_df(df: pd.DataFrame):
-    _ensure_csv()
-    df.to_csv(USERS_CSV, index=False)
+def create_user(username: str, hashed_password: str) -> bool:
+    resp = http_requests.post(
+        f"{DYNAMODB_API_URL}/register",
+        headers=_api_headers(),
+        json={
+            "username": username,
+            "hashed_password": hashed_password,
+            "created_at": datetime.utcnow().isoformat(),
+        },
+    )
+    if resp.status_code == 409:
+        return False
+    resp.raise_for_status()
+    return True
 
 
 def hash_password(password: str) -> str:

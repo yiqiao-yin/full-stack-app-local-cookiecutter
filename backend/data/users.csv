@@ -1,3 +1,4 @@
 username,hashed_password,created_at
 testuser,$2b$12$aytWcSZma6u0ONh0s78Rr.ExULnRw7G9LtRwAbu2A1PzFL70VAizS,2026-02-05T19:31:20.995888
 abc,$2b$12$OWYxHvYhgFmcFlZ3f28U3uVqYmIR//Zd.eSxd8KZo1h98tE8X6fYq,2026-02-05T19:31:44.935372
+testuser2,$2b$12$rVl4bGlP1FKmnDRg/YHwmu4UpBfi9wwDkmXNfktVLc9wo/EX1RgtW,2026-03-06T06:08:21.715794
