@@ -1,0 +1,20 @@
+version: "3.9"
+
+services:
+  backend:
+    image: cookiecuttertestacrv1.azurecr.io/stock-backend:latest
+    expose:
+      - "8000"
+
+  copilot:
+    image: cookiecuttertestacrv1.azurecr.io/stock-copilot:latest
+    expose:
+      - "4001"
+
+  frontend:
+    image: cookiecuttertestacrv1.azurecr.io/stock-frontend:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - copilot
