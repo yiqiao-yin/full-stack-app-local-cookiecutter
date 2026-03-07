@@ -464,27 +464,74 @@ aws ecs describe-tasks \
 
 ## Architecture Diagram
 
-```
-Internet
-  |
-  v
-ALB (cookiecutter-test-alb)
-  |
-  v
-ECS Fargate Task (all 3 containers share localhost)
-  |
-  +-- frontend (nginx, port 80) -- ALB target
-  |     |
-  |     +-- /api/*      --> proxy to localhost:8000 (backend)
-  |     +-- /copilotkit  --> proxy to localhost:4001 (copilot)
-  |     +-- /*           --> serve React SPA
-  |
-  +-- backend (FastAPI, port 8000)
-  |     |
-  |     +-- /api/auth/*  --> AWS API Gateway --> Lambda --> DynamoDB
-  |     +-- /api/stock/* --> yfinance
-  |
-  +-- copilot (Node.js, port 4001)
+```mermaid
+%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
+
+flowchart LR
+    subgraph AWS["☁️ AWS — ECS Fargate"]
+        direction LR
+
+        ALB["Application\nLoad Balancer\n(cookiecutter-test-alb)"]
+
+        subgraph TASK["ECS Fargate Task — all containers share localhost"]
+            direction TB
+
+            subgraph FE["FRONTEND CONTAINER  :80"]
+                direction TB
+                FE_NGINX["Nginx\nServes SPA &\nreverse-proxies\n/api/* & /copilotkit/*"]
+                FE_REACT["React App\n(static build)"]
+            end
+
+            subgraph BE["BACKEND CONTAINER  :8000"]
+                direction TB
+                BE_API["FastAPI\n(Uvicorn)"]
+                BE_AUTH["Auth Endpoints\n/api/auth/*"]
+                BE_STOCK["Stock Endpoints\n/api/stock/*"]
+            end
+
+            subgraph CP["COPILOT CONTAINER  :4001"]
+                direction TB
+                CP_RUNTIME["CopilotKit\nRuntime\n(Node.js)"]
+            end
+        end
+    end
+
+    BROWSER(("🌐 Browser"))
+    APIGW["AWS API Gateway\n+ Lambda"]
+    DYNAMO[("DynamoDB\ncookiecutter-test-table-v1")]
+    YAHOO["Yahoo Finance\nAPI"]
+    LLM["LLM Provider\n(Claude)"]
+
+    BROWSER -- "HTTP" --> ALB
+    ALB -- "port 80" --> FE_NGINX
+    FE_NGINX -- "static files" --> FE_REACT
+    FE_NGINX -- "/api/* proxy\nlocalhost:8000" --> BE_API
+    FE_NGINX -- "/copilotkit proxy\nlocalhost:4001" --> CP_RUNTIME
+    BE_API --> BE_AUTH
+    BE_API --> BE_STOCK
+    BE_AUTH -- "HTTPS" --> APIGW
+    APIGW --> DYNAMO
+    BE_STOCK -- "yfinance" --> YAHOO
+    CP_RUNTIME -- "LLM calls" --> LLM
+
+    %% Blue gradient styles
+    style AWS fill:#0a1628,stroke:#1e3a5f,stroke-width:2px,color:#e6edf3
+    style TASK fill:#0d1f3c,stroke:#1e4a7f,stroke-width:2px,color:#e6edf3
+    style FE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style BE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style CP fill:#1a0f44,stroke:#5a1e9f,stroke-width:2px,color:#e6edf3
+    style ALB fill:#1a5276,stroke:#3498db,stroke-width:2px,color:#e6edf3
+    style BROWSER fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style YAHOO fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style LLM fill:#4a1a7a,stroke:#8a2ebf,stroke-width:2px,color:#ffffff
+    style APIGW fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style DYNAMO fill:#2e86c1,stroke:#85c1e9,stroke-width:1px,color:#ffffff
+    style FE_NGINX fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style FE_REACT fill:#153d66,stroke:#2980b9,stroke-width:1px,color:#e6edf3
+    style BE_API fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style BE_AUTH fill:#1f6fa5,stroke:#5dade2,stroke-width:1px,color:#e6edf3
+    style BE_STOCK fill:#2580c3,stroke:#7ec8e3,stroke-width:1px,color:#e6edf3
+    style CP_RUNTIME fill:#2d1566,stroke:#7b4fbf,stroke-width:1px,color:#e6edf3
 ```
 
 ---

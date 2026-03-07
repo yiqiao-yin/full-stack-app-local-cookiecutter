@@ -257,24 +257,65 @@ az group delete --name cookiecutter-test-rg --yes --no-wait
 
 ## Architecture Diagram
 
-```
-Internet
-  |
-  v
-Azure Web App (cookiecutter-test-app.azurewebsites.net)
-  |
-  +-- frontend (nginx, port 80) -- public facing
-  |     |
-  |     +-- /api/*      --> proxy to backend:8000
-  |     +-- /copilotkit  --> proxy to copilot:4001
-  |     +-- /*           --> serve React SPA
-  |
-  +-- backend (FastAPI, port 8000) -- internal
-  |     |
-  |     +-- /api/auth/*  --> AWS API Gateway --> Lambda --> DynamoDB
-  |     +-- /api/stock/* --> yfinance
-  |
-  +-- copilot (Node.js, port 4001) -- internal
+```mermaid
+%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
+
+flowchart LR
+    subgraph AZURE["☁️ Azure Web App — cookiecutter-test-app.azurewebsites.net"]
+        direction LR
+
+        subgraph FE["FRONTEND CONTAINER  :80  (public)"]
+            direction TB
+            FE_NGINX["Nginx\nServes SPA &\nreverse-proxies\n/api/* & /copilotkit/*"]
+            FE_REACT["React App\n(static build)"]
+        end
+
+        subgraph BE["BACKEND CONTAINER  :8000  (internal)"]
+            direction TB
+            BE_API["FastAPI\n(Uvicorn)"]
+            BE_AUTH["Auth Endpoints\n/api/auth/*"]
+            BE_STOCK["Stock Endpoints\n/api/stock/*"]
+        end
+
+        subgraph CP["COPILOT CONTAINER  :4001  (internal)"]
+            direction TB
+            CP_RUNTIME["CopilotKit\nRuntime\n(Node.js)"]
+        end
+    end
+
+    BROWSER(("🌐 Browser"))
+    APIGW["AWS API Gateway\n+ Lambda"]
+    DYNAMO[("DynamoDB\ncookiecutter-test-table-v1")]
+    YAHOO["Yahoo Finance\nAPI"]
+    LLM["LLM Provider\n(Claude)"]
+
+    BROWSER -- "HTTPS" --> FE_NGINX
+    FE_NGINX -- "static files" --> FE_REACT
+    FE_NGINX -- "/api/* proxy\nbackend:8000" --> BE_API
+    FE_NGINX -- "/copilotkit proxy\ncopilot:4001" --> CP_RUNTIME
+    BE_API --> BE_AUTH
+    BE_API --> BE_STOCK
+    BE_AUTH -- "HTTPS" --> APIGW
+    APIGW --> DYNAMO
+    BE_STOCK -- "yfinance" --> YAHOO
+    CP_RUNTIME -- "LLM calls" --> LLM
+
+    %% Blue gradient styles
+    style AZURE fill:#0a1628,stroke:#1e3a5f,stroke-width:2px,color:#e6edf3
+    style FE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style BE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style CP fill:#1a0f44,stroke:#5a1e9f,stroke-width:2px,color:#e6edf3
+    style BROWSER fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style YAHOO fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style LLM fill:#4a1a7a,stroke:#8a2ebf,stroke-width:2px,color:#ffffff
+    style APIGW fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style DYNAMO fill:#2e86c1,stroke:#85c1e9,stroke-width:1px,color:#ffffff
+    style FE_NGINX fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style FE_REACT fill:#153d66,stroke:#2980b9,stroke-width:1px,color:#e6edf3
+    style BE_API fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style BE_AUTH fill:#1f6fa5,stroke:#5dade2,stroke-width:1px,color:#e6edf3
+    style BE_STOCK fill:#2580c3,stroke:#7ec8e3,stroke-width:1px,color:#e6edf3
+    style CP_RUNTIME fill:#2d1566,stroke:#7b4fbf,stroke-width:1px,color:#e6edf3
 ```
 
 ## Cost Estimate

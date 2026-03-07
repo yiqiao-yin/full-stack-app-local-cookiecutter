@@ -750,51 +750,161 @@ kubectl logs -n kube-system deployment/aws-load-balancer-controller
 
 ### Single Region
 
-```
-Internet
-  |
-  v
-CloudFront CDN (optional, caches /assets/*)
-  |
-  v
-ALB (created by Ingress)
-  |
-  v
-EKS Cluster (cookiecutter-test-eks-cluster)
-  |
-  Namespace: cookiecutter-test
-  |
-  +-- frontend Deployment (2-6 pods)
-  |     nginx serves SPA, proxies via K8s Service DNS:
-  |     /api/*      --> cookiecutter-test-backend-svc:8000
-  |     /copilotkit --> cookiecutter-test-copilot-svc:4001
-  |
-  +-- backend Deployment (2-10 pods)
-  |     FastAPI on port 8000
-  |     --> AWS API Gateway --> Lambda --> DynamoDB
-  |
-  +-- copilot Deployment (2-8 pods)
-        Node.js on port 4001
-        --> Anthropic API
+```mermaid
+%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
+
+flowchart LR
+    subgraph AWS["☁️ AWS — EKS (Single Region, us-east-1)"]
+        direction LR
+
+        CDN["CloudFront CDN\n(caches /assets/*)"]
+        ALB["Application\nLoad Balancer\n(via Ingress)"]
+
+        subgraph EKS["EKS Cluster — cookiecutter-test-eks-cluster"]
+            direction TB
+
+            subgraph NS["Namespace: cookiecutter-test"]
+                direction TB
+
+                subgraph FE["FRONTEND DEPLOYMENT  (2–6 pods)"]
+                    direction TB
+                    FE_NGINX["Nginx\nServes SPA &\nreverse-proxies"]
+                    FE_REACT["React App\n(static build)"]
+                end
+
+                subgraph BE["BACKEND DEPLOYMENT  (2–10 pods)"]
+                    direction TB
+                    BE_API["FastAPI\n(Uvicorn)"]
+                    BE_AUTH["Auth Endpoints\n/api/auth/*"]
+                    BE_STOCK["Stock Endpoints\n/api/stock/*"]
+                end
+
+                subgraph CP["COPILOT DEPLOYMENT  (2–8 pods)"]
+                    direction TB
+                    CP_RUNTIME["CopilotKit\nRuntime\n(Node.js)"]
+                end
+
+                HPA_BE["HPA\nBackend\n(CPU 70%)"]
+                HPA_CP["HPA\nCopilot\n(CPU 70%)"]
+                HPA_FE["HPA\nFrontend\n(CPU 70%)"]
+            end
+        end
+    end
+
+    BROWSER(("🌐 Browser"))
+    APIGW["AWS API Gateway\n+ Lambda"]
+    DYNAMO[("DynamoDB\ncookiecutter-test-table-v1")]
+    YAHOO["Yahoo Finance\nAPI"]
+    LLM["LLM Provider\n(Claude)"]
+
+    BROWSER -- "HTTPS" --> CDN
+    CDN -- "origin" --> ALB
+    ALB -- "Ingress\nport 80" --> FE_NGINX
+    FE_NGINX -- "static files" --> FE_REACT
+    FE_NGINX -- "/api/* proxy\nbackend-svc:8000" --> BE_API
+    FE_NGINX -- "/copilotkit proxy\ncopilot-svc:4001" --> CP_RUNTIME
+    BE_API --> BE_AUTH
+    BE_API --> BE_STOCK
+    BE_AUTH -- "HTTPS" --> APIGW
+    APIGW --> DYNAMO
+    BE_STOCK -- "yfinance" --> YAHOO
+    CP_RUNTIME -- "LLM calls" --> LLM
+    HPA_BE -. "scales" .-> BE
+    HPA_CP -. "scales" .-> CP
+    HPA_FE -. "scales" .-> FE
+
+    %% Blue gradient styles
+    style AWS fill:#0a1628,stroke:#1e3a5f,stroke-width:2px,color:#e6edf3
+    style EKS fill:#0d1f3c,stroke:#1e4a7f,stroke-width:2px,color:#e6edf3
+    style NS fill:#111d33,stroke:#1e3a6f,stroke-width:1px,color:#e6edf3
+    style FE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style BE fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style CP fill:#1a0f44,stroke:#5a1e9f,stroke-width:2px,color:#e6edf3
+    style CDN fill:#1a5276,stroke:#3498db,stroke-width:2px,color:#e6edf3
+    style ALB fill:#1a5276,stroke:#3498db,stroke-width:2px,color:#e6edf3
+    style BROWSER fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style YAHOO fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style LLM fill:#4a1a7a,stroke:#8a2ebf,stroke-width:2px,color:#ffffff
+    style APIGW fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style DYNAMO fill:#2e86c1,stroke:#85c1e9,stroke-width:1px,color:#ffffff
+    style FE_NGINX fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style FE_REACT fill:#153d66,stroke:#2980b9,stroke-width:1px,color:#e6edf3
+    style BE_API fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style BE_AUTH fill:#1f6fa5,stroke:#5dade2,stroke-width:1px,color:#e6edf3
+    style BE_STOCK fill:#2580c3,stroke:#7ec8e3,stroke-width:1px,color:#e6edf3
+    style CP_RUNTIME fill:#2d1566,stroke:#7b4fbf,stroke-width:1px,color:#e6edf3
+    style HPA_BE fill:#1fa575,stroke:#5de2a2,stroke-width:1px,color:#e6edf3
+    style HPA_CP fill:#1fa575,stroke:#5de2a2,stroke-width:1px,color:#e6edf3
+    style HPA_FE fill:#1fa575,stroke:#5de2a2,stroke-width:1px,color:#e6edf3
 ```
 
 ### Multi-Region
 
-```
-                     Route 53 (latency-based)
-                    /                        \
-                   v                          v
-          us-east-1                    eu-west-1
-     CloudFront + ALB             CloudFront + ALB
-          |                              |
-     EKS Cluster                   EKS Cluster
-     (same setup)                  (same setup)
-          |                              |
-     API Gateway                   API Gateway
-     Lambda                        Lambda
-          |                              |
-          +----  DynamoDB Global Table  --+
-                 (auto-replication)
+```mermaid
+%%{init: {"flowchart": {"defaultRenderer": "elk"}} }%%
+
+flowchart TB
+    subgraph GLOBAL["🌍 Multi-Region Architecture"]
+        direction TB
+
+        R53["Route 53\nLatency-Based Routing"]
+
+        subgraph US["🇺🇸 us-east-1"]
+            direction TB
+            US_CDN["CloudFront CDN"]
+            US_ALB["ALB"]
+            US_EKS["EKS Cluster\n(frontend + backend + copilot)"]
+            US_APIGW["API Gateway\n+ Lambda"]
+        end
+
+        subgraph EU["🇪🇺 eu-west-1"]
+            direction TB
+            EU_CDN["CloudFront CDN"]
+            EU_ALB["ALB"]
+            EU_EKS["EKS Cluster\n(frontend + backend + copilot)"]
+            EU_APIGW["API Gateway\n+ Lambda"]
+        end
+
+        DYNAMO_GLOBAL[("DynamoDB\nGlobal Table\n(auto-replication)")]
+    end
+
+    BROWSER(("🌐 Browser"))
+    LLM["LLM Provider\n(Claude)"]
+    YAHOO["Yahoo Finance\nAPI"]
+
+    BROWSER -- "DNS lookup" --> R53
+    R53 -- "nearest region" --> US_CDN
+    R53 -- "nearest region" --> EU_CDN
+    US_CDN --> US_ALB
+    US_ALB --> US_EKS
+    US_EKS --> US_APIGW
+    US_APIGW --> DYNAMO_GLOBAL
+    EU_CDN --> EU_ALB
+    EU_ALB --> EU_EKS
+    EU_EKS --> EU_APIGW
+    EU_APIGW --> DYNAMO_GLOBAL
+    US_EKS -- "yfinance" --> YAHOO
+    EU_EKS -- "yfinance" --> YAHOO
+    US_EKS -- "LLM calls" --> LLM
+    EU_EKS -- "LLM calls" --> LLM
+
+    %% Styles
+    style GLOBAL fill:#0a1628,stroke:#1e3a5f,stroke-width:2px,color:#e6edf3
+    style US fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style EU fill:#0f2744,stroke:#1e5a9f,stroke-width:2px,color:#e6edf3
+    style R53 fill:#1a5276,stroke:#3498db,stroke-width:2px,color:#e6edf3
+    style DYNAMO_GLOBAL fill:#2e86c1,stroke:#85c1e9,stroke-width:2px,color:#ffffff
+    style BROWSER fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style YAHOO fill:#1a4a7a,stroke:#2e7abf,stroke-width:2px,color:#ffffff
+    style LLM fill:#4a1a7a,stroke:#8a2ebf,stroke-width:2px,color:#ffffff
+    style US_CDN fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style US_ALB fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style US_EKS fill:#153d66,stroke:#2980b9,stroke-width:1px,color:#e6edf3
+    style US_APIGW fill:#1f6fa5,stroke:#5dade2,stroke-width:1px,color:#e6edf3
+    style EU_CDN fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style EU_ALB fill:#1a5276,stroke:#3498db,stroke-width:1px,color:#e6edf3
+    style EU_EKS fill:#153d66,stroke:#2980b9,stroke-width:1px,color:#e6edf3
+    style EU_APIGW fill:#1f6fa5,stroke:#5dade2,stroke-width:1px,color:#e6edf3
 ```
 
 ---
